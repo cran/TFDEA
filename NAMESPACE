@@ -1,0 +1,9 @@
+# TFDEA Namespace file
+
+# Export public functions
+export(
+  DEA, SDEA,
+  TFDEA
+)
+
+import(lpSolveAPI)
