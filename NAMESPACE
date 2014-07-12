@@ -3,7 +3,8 @@
 # Export public functions
 export(
   DEA, SDEA,
-  TFDEA
+  TFDEA,
+  isEfficient
 )
 
 import(lpSolveAPI)

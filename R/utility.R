@@ -4,7 +4,7 @@
 # Use granted under BSD license terms
 #
 # R TFDEA Package
-# 
+#
 # $Author: tshott $
 # $Revision: 105 $
 # $Date: 2013-08-16 22:47:28 -0700 (Fri, 16 Aug 2013) $
@@ -15,196 +15,221 @@
 #******************************************************************************
 #
 # TODO
-# Check for max lp print paramaters
+# Check for max lp print parameters
 # Add debug verbose variables - option
 # Log / export info utility - ALL info including orientation, ID string
 # * Want to make sure every run is tagged with enough info to reproduce
 #
-library(lpSolveAPI) 
-
+library(lpSolveAPI)
 
 #
 # Package Global Variables
 #
-tfdea_version = "0.7.1"
-tfdea_id = paste0("tfdea Version ", tfdea_version, 
-                  " $Id: utility.R 105 2013-08-17 05:47:28Z tshott $")
-
-# Numeric Versions Match Benchmarking Package dea options numeric codes
-orientation_options_l <- c("input","output")
-
-# Numeric Versions Match Benchmarking Package dea options numeric codes
-# Benchmarking suppors 0 - 7, open TFDEA supports 1-4
-rts_options_l   <- c("vrs","drs", "crs", "irs")
-rts_rhs         <- c( 1,    1,     0,     1)
-rts_typ         <- c( "=", "<=",  ">=",  ">=")
+tfdea.version = "0.9.4"
+tfdea.id = paste0("tfdea Version ", tfdea.version)
 
 #
-# Set global epsilon for numerical compeasions in package
-# WARN: If we ever add an option to allow the user to set lpModel control
-# parameters we'll need to move this into the solution loop so we get the right
-# value for epislon if user changes the tightness of the solution
+# Options Strings
 #
-#lp_model  <- make.lp(1, 1)
-#lp_ctl    <- lp.control(lp_model)
-#epsilon   <- sqrt(lp_ctl$epsilon["epsint"])
-#delete.lp(lp_model)
-#remove(lp_ctl, lp_model)
+options.orientation.l <- c("input","output")
+options.second.l      <- c("min", "max", "none")
+options.mode.l        <- c("static", "dynamic")
+
+options.rts.l         <- c("vrs","drs", "crs", "irs")
+rts.rhs               <- c(  1,   1,     0,     1)
+rts.typ               <- c( "=", "<=",   0,    ">=")
+
+#
+# Set global epsilon for numerical checks in package
+# Backup value, dea_internal resets when run
 epsilon   <- 0.0003162278
 
 
-# Function: .check_data()
-# Check input data and convert to dataframe with both dimensions named
-# * Checks for valid types, can be converted to data frame
+# Function: .checkData()
+# * Checks for valid types
 # * add names if unnamed vars
-# var_type is the Prefix string for un-named col vars. it only controls the names
 #
-.check_data <- function(x, var_type="X"){
-  # Is data numeric?
-  if ( !is.numeric(x) && !is.data.frame(x) )
-    stop(x," is not a numeric matrix (or data.frame)", call. = FALSE)
-  
-  # Check if > 2d
-  if( length(dim(x)) > 2)
-    stop(x," is greater than 2 dimensions", call. = FALSE)
-  
-  row_names_org <- rownames(x)
-  col_names_org <- colnames(x)
-  
-  # Convert to data frame
-  x <- as.data.frame(x)
-  
-  # If original names were missing add names
-  if(is.null(row_names_org)){
-    row_names = paste0("DMU", 1:nrow(x))
-    rownames(x) <- row_names
-  }
-  if(is.null(col_names_org)){
-    col_names = paste0(var_type, 1:ncol(x))
-    colnames(x) <- col_names
-  }
-  
+.checkData <- function(x, name){
+  # Is value a dataframe, array or vector?
+  if ( !is.data.frame(x) && !is.array(x) && (length(x) < 2))
+    stop(name," is not a matrix, array (1 or 2 dimensions) or data.frame", call. = FALSE)
+
+  if(length(dim(x)) > 2)
+    stop(name," is greater then 2 dimensions", call. = FALSE)
+
+  # If data.frame - convert to array
+  if (is.data.frame(x))
+    x <- data.matrix(x)
+
+  # If vector convert to a 1 x N array
+  if (is.vector(x))
+    x <- array(x, c(length(x), 1))
+
+  # Check that all numeric
+  if(! is.numeric(x))
+    stop(name," must be numeric", call. = FALSE)
+
+  # Add DMU names if empty
+  if (length(dim(x)) >= 1 && is.null(rownames(x)))
+    rownames(x) <- paste0("DMU", 1:nrow(x))
+
+  # Add Col names if empty
+  if (length(dim(x)) >= 2 && is.null(colnames(x)))
+    colnames(x) <- paste0(name, 1:ncol(x))
+
   return(x)
 }
 
-# Function: .check_date()
+# Function .CheckDataGood
+# Check input & output data and warn about problems for DEA
+.checkDataGood <- function(x, y){
+
+  status <- TRUE
+
+  # Check for any zero's
+  # Check for NA's
+  # Check for no positive Values on input & output
+  if (any(x == 0, na.rm=TRUE)){
+    cat("Warning, data has DMU's with inputs that are zero, this may cause numerical problems\n")
+    status <- FALSE
+  }
+
+  if (any(y == 0, na.rm=TRUE)){
+    cat("Warning, data has DMU's with outputs that are zero, this may cause numerical problems\n")
+    status <- FALSE
+  }
+
+  for (k in (1:nrow(x))){
+    if ( all(x[k,] <= 0, na.rm=TRUE) & all(y[k,] <= 0, na.rm=TRUE)){
+      cat("Warning, DMU # ",k, "has no positive inputs or outputs, this may cause numerical problems\n")
+    status <- FALSE
+    }
+  }
+
+  return(status)
+}
+
+# Function: .checkVector()
 # Check input data and convert to dataframe
-# * Checks for valid types, can be converted to dataframe
+# * Checks for valid types
 # * add names if unnamed vars
-# * make sure returned as dataframe
-# var_type is the Prefix string for un-named col vars. it only controls the names
+# * make sure returned as array
 #
-.check_date <- function(x, var_type="X"){
-  # Is data numeric?
-  if ( !is.numeric(x) && !is.data.frame(x) )
-    stop(x," is not a numeric matrix (or data.frame)", call. = FALSE)
-  
-  # Checks for dataframe or array
+.checkVector <- function(x, name){
+
+  # Is value a dataframe, array or vector?
+  if ( !is.data.frame(x) && !is.array(x) && !is.vector(x))
+    stop(name," is not a vector, array (1 dimensions) or data.frame", call. = FALSE)
+
+  if(is.data.frame(x))
+    x <- data.matrix(x)
+
   if(!is.null(dim(x))){
-    if( length(dim(x)) > 2)
-      stop(x," is greater than 2 dimensions", call. = FALSE)
-    if( dim(x)[2] > 1)
-      stop(x," is greater than 1 col", call. = FALSE)  
-    return(x[,1])     
-  }  
+    if (length(dim(x)) > 2)
+      stop(name," is greater then 2 dimensions", call. = FALSE)
+    if (length(dim(x)) == 2 & dim(x)[2] > 1)
+      stop(name," is greater then 2 dimensions", call. = FALSE)
+
+    x <- as.vector(x)
+  }
+
+  if (!is.numeric(x))
+    stop(name, " must be numeric ", call. = FALSE)
+
+
+#   if (!is.null(ncol(x)) && (ncol(x) != 1))
+#       stop(name, " must have one col ", call. = FALSE)
+#
 
   return(x)
 }
 
-#<New Page> 
-# Function: .check_orientation()
-# Check that orientation is legal orientation
-# Convert to lower case, accept some of the other variants of orientation parameter
-# Return cleaned up value
-# Checks against global list of legal orientations
+
+# Function: .checkOption()
+# Check that value in legal list options
+# If on legal list, return lowercase short form option
 #
-.check_orientation <- function(orientation){
-  
-  if(length(orientation) > 1){
-    stop("illegal vector for orientation value - must be single is value", call. = FALSE)
+.checkOption <- function(value, name, options.l=c(TRUE, FALSE)){
+
+  if (length(value) != 1){
+    stop("illegal vector for ", name, " option must be single value", call. = FALSE)
   }
 
-  if(is.numeric(orientation)){
-    # If numeric value make sure within bounds and convert to string
-    if (orientation < 1 || orientation > length(orientation_options_l)){
-      stop(paste0("illegal numeric orientation is < 1 or > ", 
-                  length(orientation_options_l)), call. = FALSE)
-    } else {
-      orientation <- orientation_options_l[orientation]
-      return(orientation)
+  # If options are character
+  if (is.character(options.l[1])){
+    if (is.character(value)){
+      tmp.value <- tolower(value)
+      #    if (tmp.value %in% options.l)
+      i <- charmatch(tmp.value, options.l, nomatch=-1)
+      if (i > 0)
+        return(options.l[i])
     }
-  }
-  # if character make sure is in list of legal orientations
-  if(is.character(orientation)){
-    orientation <- tolower(orientation)
-    
-    # Check in legal list
-    if (orientation %in% orientation_options_l)
-      return(orientation)
-    
-    # Convert Benchmarking Package style orientation (IN, OUT)
-    # Check for partial string match using pmatch
-    orientation_index <- pmatch(orientation, orientation_options_l, nomatch =-1 )
-    if (orientation_index > 0){
-      orientation <- orientation_options_l[orientation_index]
-      return(orientation)
+  } else if (is.logical(options.l[1])){
+    # Logical options
+    if (is.logical(value)){
+      return(value)
     }
+  } else {
+    # Numeric options
+    if (is.numeric(value) && is.finite(value) && (value >= 0 )){
+      return(value)
+    }
+    options.l <- c("numeric >= 0")
   }
-  
-  # Not numeric, not character - not legal
-  stop("orientation is not legal orientation", call. = FALSE)
+
+  stop("Illegal value=", value, " for ", name, "; legal values are: ",
+       paste(options.l, collapse = ", "),
+       call. = FALSE)
 }
 
-
-# Function: .check_rts()
-# Check value of RTS and make sure in right format
-# Return cleaned up value
 #
-.check_rts <- function(rts){
-  
-  if(length(rts) > 1){
-    stop("illegal vector for rts value - must be single is value", call. = FALSE)
+# Check that index is OK, comvert to sparse if not
+.checkIndex       <- function(index, x, name){
+
+  # Add check for are index values valid?
+
+  if(is.null(index)){                     # index.K defines the subset of DMU's that eff is
+    return(c(1:nrow(x)))
   }
-    
-  if(is.numeric(rts)){
-    # If numeric value make sure within bounds and convert to string
-    if (rts < 1 || rts > length(rts_options_l)){
-      stop(paste0("illegal numeric rts is < 1 or > ", 
-                  length(rts_options_l)), call. = FALSE)
-    } else {
-      rts <- rts_options_l[rts]
-      return(rts)
+
+  if (is.logical(index)){
+    if (length(index) != nrow(x))
+      stop("Length ",name,"= ",length(index),"  must equal number of DMU's", call. = FALSE)
+    return(which(index))                # Acccept logocal or spase index array - convert to spars
+  }
+
+  if (is.numeric(index)){
+    if (any(index < 1) | any (index > nrow(x)))
+      stop("Value of ",name, "=", paste(index, sep=",", collapse=",")," is < 1 or > number of DMU's", call.=FALSE)
+
+    if(any(duplicated(index))){
+      warning("a value of ",name, " is duplicated", call.=TRUE)
     }
   }
-  
-  # if non-numeric make sure is in list of legal rts
-  if(is.character(rts)){
-    rts <- tolower(rts)
-    if (rts %in% rts_options_l)
-      return(rts)
-  }
-  stop("character rts is not legal rts", call. = FALSE)
+  return(index)
 }
 
-# Check if value is efficient
+# Check if value is weekly efficient
 # Depends on orientation
 # Needs to be smart FP compare
-is.efficient <- function(eff, orientation){
-  orientation <- .check_orientation(orientation)
+isEfficient <- function(eff, orientation){
 
-  # May get called with NaN value - if NaN, return false.
-  # Need to write as vector test
+  if (!is.numeric(eff))
+    stop("Illegal value= eff; legal values are: numeric", call. = FALSE)
+
+  orientation <- .checkOption(orientation,   "orientation",  options.orientation.l)
+
   if(orientation == "input"){
-    return( is.finite(eff) & (eff + epsilon) >= 1)
+    return (is.finite(eff) & (eff + epsilon  >= 1))
   } else {
-    return( is.finite(eff) & (eff - epsilon) <= 1)
+    return (is.finite(eff) & (eff - epsilon  <= 1))
   }
 }
 
 # Internal Function, check if value is efficient
 # Depends on orientation
 # Needs to be smart FP compare
-is.stdefficient <- function(eff){
+isStdEfficient <- function(eff){
 
   # May get called with NaN value - if NaN, return false.
   # Need to write as part of vector test
@@ -212,11 +237,7 @@ is.stdefficient <- function(eff){
   return( is.finite(eff) & (eff + epsilon) >= 1)
 }
 
-normalize_eff <- function(eff, orientation){
-  if (orientation == "output") eff <- 1 / eff
-  return(eff)
-}  
-  
+
 #<New Page>
 # Function: .lp_debug_file()
 #
@@ -224,28 +245,29 @@ normalize_eff <- function(eff, orientation){
 # Dumps out linear model to a output file.
 # Pass a lp_model to print, a log message to use
 #
-# Use append=FALSE when you want to start a new file, for a new test run for 
+# Use append=FALSE when you want to start a new file, for a new test run for
 # example.
 #
 # NOTE: lp model print function has limit on how big a model it will print.
 #       it quietly fails to print the vars if model is too big.
 #
-# ToDo: 
+# ToDo:
 # add a option to control sig digits of values printed
 # add a check for if max # vars is being executed and print will fail quietly
+# try using another method to dump model out
 #
-lp_debug_file <- function (lp_model, message="", file_name="lp_model.out", append=TRUE){
-  # Check of valid lp object
+lpDebugFile <- function (lp_model, message="", file_name="lp_model.out", append=TRUE){
+  # Check if valid lp object
   if(! (class(lp_model) == "lpExtPtr") )
     stop("not a lp_object", call. = FALSE)
-  
+
   sink(file_name, type="output", append)  # Send output to file
-  
+
   cat("\n")
   cat(paste0(message),"\n")
   print(lp_model)
   cat("\n")
-  
+
   sink(NULL)                              # Resets output to normal location
 }
 
@@ -255,7 +277,7 @@ lp_debug_file <- function (lp_model, message="", file_name="lp_model.out", appen
 lp_solve_error_msg <- function(status){
 
   error_msg <- c(
-    "the model is sub-optimal", 
+    "the model is sub-optimal",
     "the model is infeasible",
     "the model is unbounded",
     "the model is degenerate",
@@ -267,11 +289,14 @@ lp_solve_error_msg <- function(status){
     "the branch and bound was stopped because of a break-at-first or break-at-value",
     "a feasible branch and bound solution was found",
     "no feasible branch and bound solution was found")
-  
-   if ( !is.integer(status) || status < 1 || status > length(error_msg) )
-     stop("Status code must be integer from 1 - 13", call. = TRUE)
-  
-  return(error_msg[status])
+
+  if ( !is.numeric(status) || status < 1 || status > length(error_msg) ){
+    warning("Status code:", status, " must be integer from 1 - 12", call. = TRUE)
+    message <- paste("ERROR: Unknown status message: ", status)
+  } else {
+    message <- error_msg[status]
+  }
+  return(message)
 }
 
 #
@@ -279,6 +304,7 @@ lp_solve_error_msg <- function(status){
 #
 
 # MAD - Mean Absolute Deviation
+# Todo: Add warning messages for NA's
 MAD <- function(x, y){
   mad <- mean(abs(x - y), na.rm=TRUE)
   return(mad)

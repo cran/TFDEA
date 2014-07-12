@@ -1,311 +1,253 @@
 #******************************************************************************
 #
-# Copyright Tom Shott, ETA, PSU, 2013
+# Copyright Tom Shott, ETA, PSU, 2013. 2014
 # Use granted under BSD license terms
 #
 # R TFDEA Package
-# 
-# $Author: tshott $
-# $Revision: 104 $
-# $Date: 2013-08-12 07:32:56 -0700 (Mon, 12 Aug 2013) $
-# $Id: tfdea.R 104 2013-08-12 14:32:56Z tshott $
 #
 # TFDEA function
 #
-# NOTE: All efficiencies in program are in 0 - 1 form, output orientated values are
-# converted to 1/eff on calculation. use "stdeff" for normalized eff vars
+# NOTE: All efficiencies in program are in 0 - 1 form, output orientatation values are
+# converted to 1/eff on calculation.
 #
 # Note: Man page - comment that default orientation is output, different from DEA
 #
-# Global Dimension Variables
-#
-# Input Arrays
-#
-# Type          Variable    Size      iteration var     Dimensions
-# Inputs        x           m         i                 i, k
-# Outputs       y           s         r                 r, k
-# DMU's                     n         k
-#
-# debug option controls how much output the code genrates. 0 - none, 3 is alot
+# debug option controls how much output the code generates. 0 - none, 3 is a lot
 #
 #******************************************************************************
 #
-# TODO
-# Also require utilities
-# Check use dim(x) - use value instead
-# Question  - why not forecast DMU SEAF < 1?
 
-TFDEA <- function (x, y, dmu_date_rel, date_forecast, 
-                   rts="vrs", orientation="output", 
-                   second="min", mode="static",
-                   debug=0){
+TFDEA <- function (x, y, dmu_date_rel, date_forecast, rts="vrs", orientation="output",
+                   second="min", mode="static", segroc=FALSE, debug=0){
+
+  rts         <- .checkOption(rts,         "rts",          options.rts.l)
+  orientation <- .checkOption(orientation, "orientation",  options.orientation.l)
+  second      <- .checkOption(second,      "second",       options.second.l)
+  mode        <- .checkOption(mode,        "mode",         options.mode.l)
+  segroc      <- .checkOption(segroc,      "segroc",       TRUE)
+  debug       <- .checkOption(debug,       "debug",        0)
+
   #
   # Check Input Values for correctness and consistency in size
   #
-  
-  # Check input vars
-  x <- .check_data(x)
-  y <- .check_data(y)
-  if (dim(x)[1] != dim(y)[1])
+  x <- .checkData(x, "x")
+  y <- .checkData(y, "y")
+  if (nrow(x) != nrow(y))
     stop("Number of DMU's in inputs != number of DMU's in outputs")
-  
-  
-  dmu_date_rel <- .check_date(dmu_date_rel)
-  if (dim(x)[1] != length((dmu_date_rel)))
-    stop("Number of DMU's in date intro != number of DMU's in inputs", call. = FALSE)
-  if(!is.numeric(date_forecast) || length(date_forecast) > 1)
-    stop("Forecast year must be numeric value, length = 1", call. = FALSE)
-  if(date_forecast < min(dmu_date_rel) || date_forecast > max(dmu_date_rel))
-    stop("Forecast year must be between min and max intro_date", call. = FALSE)
-  
-  # Check other options
-  rts         <- .check_rts(rts)
-  orientation <- .check_orientation(orientation)
-  
-  if(! second %in% c("min", "max", "none"))
-    stop("second option must be none, min or max")
-  
-  if(! mode %in% c("static","dynamic"))
-    stop("mode option must be must be static or dynamic", call. = FALSE)
-  
-  if(! (is.numeric(debug) && is.finite(debug) && (debug >= 0 ) ))
-    stop("debug option mode must be must numeric >= 0", call. = FALSE)
-  
-  #
-  # Setup output values
-  #
-  # Create arrays for outputs
-  n <- nrow(x)  # number of units, firms, DMUs
-  dmu_names     <- rownames(x)
-  
-  #
-  # Calculate unique dates for SOA calculations 
-  #
-  # Complex expresion, extract unique dates
-  # We extract all unique dates so can run eff at rel chek for all DMU's
-  date_soa_l <- sort(unique(dmu_date_rel))
-  
-  # Find the largest date, <= to date forecast
-  # The user can pick a forecast date that is not in the DMU release dates, in which case we need to
-  # deteime which DMU releaes date is the largest and <= date forecast
-  date_cur_forecast <- date_soa_l [max(which( date_soa_l <= date_forecast))]
-  
-  if (debug >= 2) cat("Date Cur Forecast:", date_cur_forecast, "Unique SOA Dates: ", paste0(date_soa_l, ","), "\n")
-  
-###############################################################################################
-#
-# Phase 1 - for each technology SOA set determine which DMU's are efficient at intro
-#
-# Also store last year efficient to assist in debug
-#
-###############################################################################################
-  #  
-  # NOTE: All eff's stdeff - normalized to 0 - 1.  Use Normalize option to DEA
 
+  .checkDataGood(x, y)
+
+  dmu_date_rel <- .checkVector(dmu_date_rel, "dmu_date_rel")
+  if (length(dmu_date_rel) != nrow(x))
+    stop("Number of DMU's in date intro != number of DMU's in inputs", call. = FALSE)
+  dmu_date_rel <- array(dmu_date_rel, c(nrow(x)))         # Make same orientation other array
+
+  .checkOption(date_forecast, "date_forecast", 0)
+  if(date_forecast < min(dmu_date_rel) || date_forecast > max(dmu_date_rel))
+    stop("Forecast date must be between min and max intro_date", call. = FALSE)
+
+  # Unique sorted dates for calculations, as.vector to get right orientation
+  date.soa.l      <- as.vector(sort(unique(dmu_date_rel[dmu_date_rel <= date_forecast])))
+  if (debug >= 2) cat("Date Cur Forecast:", date_forecast, "Unique SOA Dates: ",
+                      paste0(date.soa.l, collapse = ", "), "\n")
+
+
+  #<New Page>
+  ###############################################################################################
   #
+  # Phase 1 - for each technology SOA set determine which DMU's are efficient at intro
+  #
+  ###############################################################################################
+  nd                <- nrow(x)              # number of units, firms, DMUs
+  dmu.names         <- rownames(x)
+
   # Values At Release (REL) date product first introduced
-  #  
-  dmu_stdeff_rel    <- array(NA, c(n),    list(dmu=dmu_names))
-  dmu_date_last     <- array(NA, c(n),    list(dmu=dmu_names))
-  
-  #
-  # Current Values (CUR) - values for last date less then forecast date
-  #  
-  dmu_stdeff_cur    <- array(NA, c(n),    list(dmu=dmu_names))
-  dmu_lambda_cur    <- array(NA, c(n,n),  list(dmu=dmu_names, dmu2=dmu_names))
-  
-  # TODO - add vx, uy
-  #
-  # Temp values
-  #
-  dmu_stdeff_tmp    <- array(NA, c(n),    list(dmu=dmu_names))
-  dmu_lambda_tmp    <- array(NA, c(n,n),  list(dmu=dmu_names, dmu2=dmu_names))
-  
-  
-  # Loop for each unique date
-  for(t in date_soa_l){
-    dmu_stdeff_tmp  <- array(NA, c(n),    list(dmu=dmu_names))  # Make sure all values NA to start
-    
-    # Build Set in logical (_b - binary) vector
-    # All DMU's with date <= t are in SOA set for date t
-    dmu_in_soa_b  <- (dmu_date_rel <= t)            # Logical vector - true for dates in SOA
-    if (debug >= 3) cat("\nEvaluate SOA for date=", t, " SOA DMUs:", dmu_names[dmu_in_soa_b],"\n")
-    
-    # Calculate Eff for All DMU's in SOA
-    # WARNING: need to subset vector on left & right so results line up
-    # WARNING: Use normalize option to make all eff 0 - 1, stdeff, even for output orientation
-    results <- .dea(x[dmu_in_soa_b,],
-                    y[dmu_in_soa_b,],
-                    rts, orientation,
-                    second=second, z=dmu_date_rel[dmu_in_soa_b],
-                    normalize=TRUE)
-    dmu_stdeff_tmp[dmu_in_soa_b] <- results$eff
-    dmu_lambda_tmp[dmu_in_soa_b, dmu_in_soa_b] <- results$lambda
-    
-    # Save results from date that matches forecast year (note that date forecast may not be in 
-    # set of dates, so we use the date_cur_forecats, which is largest dmu date <= date forecast)
-    if (t == date_cur_forecast){
-      dmu_stdeff_cur  <- dmu_stdeff_tmp
-      dmu_lambda_cur  <- dmu_lambda_tmp
-    }    
-    
-    # Save release eff for DMU's with dmu_stdeff_rel = NA & dmu_stdeff_tmp != NA
-    # This way we save only stdeff when initially released
-    # In the future, we may not run eff calculation at every date. This check saves all the
-    # dates for new DMU's, even if doesn't match curret date exactly
-    dmu_eff_update_b <- is.na(dmu_stdeff_rel) & !is.na(dmu_stdeff_tmp)
-    dmu_stdeff_rel[dmu_eff_update_b] <- dmu_stdeff_tmp[dmu_eff_update_b]  
-    
-    # Update last date effecient for DMU's with dmu_stdeff is efficient, so now last date stdeff
-    # Not used in forecast claculations, but produces petty tables
-    dmu_date_last[is.stdefficient(dmu_stdeff_tmp)] <- t
+  dmu.eff.rel       <- array(NA, c(nd),     list(dmu=dmu.names))
+  dmu.lambda.rel    <- array(NA, c(nd,nd),  list(dmu=dmu.names, dmu2=dmu.names))
+
+  # Current Values (CUR) - values for largest date less then or equal forecast date
+  dmu.eff.cur       <- array(NA, c(nd),     list(dmu=dmu.names))
+  dmu.lambda.cur    <- array(NA, c(nd,nd),  list(dmu=dmu.names, dmu2=dmu.names))
+  dmu.roc.cur       <- array(NA, c(nd),     list(dmu=dmu.names))
+  dmu.sroc.cur      <- array(NA, c(nd),     list(dmu=dmu.names))
+  dmu.date.cur      <- array(date_forecast, c(nd),  list(dmu=dmu.names))
+
+  # Loop for each unique date less then or equal forecast date
+  for(t in date.soa.l){
+    dmu.eff.cur.b   <- isStdEfficient(dmu.eff.cur)        # DMU's from earlier years still eff
+    dmu.cur.b       <- (dmu_date_rel == t)                # DMU's from current year
+    dmu.soa.b       <- dmu.eff.cur.b | dmu.cur.b          # DMU's to use for eff calc
+
+    if (debug >= 3) {
+      cat("\nEvaluate SOA for date=", t, "\n")
+      cat("Eff Cur DMUs:", dmu.names[dmu.eff.cur.b],"\n")
+      cat("New Cur DMUs:", dmu.names[dmu.cur.b], "\n")
+      cat("SOA Cur DMUs:", dmu.names[dmu.soa.b], "\n")
+    }
+
+    # Calculate Eff for All DMU's in SOA for each time period
+    # WARNING: Use stdeff option to make all eff 0 - 1, stdeff, even for output orientation
+    # index options select subset of DMU's
+    results <- .dea(x, y, rts, orientation, second=second, z=dmu_date_rel,
+                    slack=FALSE, stdeff=TRUE, index.K=dmu.soa.b, index.T=dmu.soa.b)
+    dmu.eff.cur     <- results$eff
+    dmu.lambda.cur  <- results$lambda
+
+    # Save release eff & lambda for new DMU's released this year
+    dmu.eff.rel[dmu.cur.b] <- dmu.eff.cur[dmu.cur.b]
+    dmu.lambda.rel[dmu.cur.b, dmu.cur.b] <- dmu.lambda.cur[dmu.cur.b, dmu.cur.b]
   }
-  
-  table <- cbind(dmu_date_rel, dmu_stdeff_rel, dmu_date_last)
-  colnames(table) <- c("Date", "Eff_Rel", "Last")
+
+  table <- cbind(dmu_date_rel, dmu.eff.rel, dmu.eff.cur)
+  colnames(table) <- c("Date", "Eff_Rel", "Eff_Cur")
   if (debug >= 2) {
     print("done Phase 1")
     print(table, digits=7)
   }
-  
-###############################################################################################
-#
-# Phase 2 - Calculate technology rate of change (ROC) for DMU's <= forecast date
-#
-# Calculated and saved neef, lambda in Phase 1
-#
-###############################################################################################
-  #
-  # NOTE: dmu_date_cur depends on if using static ot dynamic ROC
-  # If static, is just set to forecast date. Set all here, reset if dynamic later
-  dmu_date_cur      <- array(date_forecast, c(n),  list(dmu=dmu_names))
-  dmu_roc           <- array(NA, c(n),             list(dmu=dmu_names))
-  
-  # DMU's in current set, date release <= forecast date
-  dmu_cur_b  <- (dmu_date_rel <= date_cur_forecast)
-  if (debug >= 3) cat("Phase 2 - DMU Forecast Sample Set:", dmu_names[dmu_cur_b], "\n")
-  
-  # Calculate ROC values for all DMU's < forecast, but not at forecast
-  dmu_roc_b  <- (dmu_date_rel < date_cur_forecast)
-  if (debug >= 3) cat("Phase 2 - DMU Forecast ROC Calc Set:", dmu_names[dmu_roc_b], "\n")
-  
-  if(mode == "dynamic"){
-    # Dynamic Mode - adjust cur year based on weighted lambdas - forecast year based upon peers
-    # year is simple weighted average of peers rel year
-    for (k in which(dmu_roc_b)){
-      dmu_date_cur[k] <- sum(dmu_lambda_cur[k,] * dmu_date_rel, na.rm=TRUE) / 
-        sum(dmu_lambda_cur[k,], na.rm=TRUE)
-    }
-  }
-  
-  # ToDO - redo calc with <=, check current date, forecast, one check - not two
-  # For each DMU which is earlier then forecast year calc ROC
-  # Include DMU's efficeint at release and not efficient at current and eff date > 
-  for(k in which(dmu_roc_b)){
-    if (is.stdefficient(dmu_stdeff_rel[k]) && !is.stdefficient(dmu_stdeff_cur[k])){
 
-      # Check corner case
-      # If we calc a dmu_date_cur < then the actual release date do not use in calc
-      if ( dmu_date_cur[k] <= dmu_date_rel[k]){
-        warning("DMU ", dmu_names[k], " effective current ",
-                "date < release date due to dynamic ROC and is being dropped", call. = FALSE)
-      } else {
-        dmu_roc[k] <- (dmu_stdeff_rel[k] / dmu_stdeff_cur[k]) ^ 
-          ( 1 / (dmu_date_cur[k] - dmu_date_rel[k]) )
-        
-        # Check for problem with numerical instablity in some dynamic ROC calculations
-        # In some cases, dynamic ROC will result in very small delta t and a too large ROC
-        if (dmu_roc[k] > 10){
-          warning("DMU ", dmu_names[k], " has a numerically unstable ROC and is being dropped",
-                  call. = FALSE)
-          dmu_roc[k] = NA
-        }
+  #<New Page>
+  ###############################################################################################
+  #
+  # Phase 2 - Calculate technology rate of change (ROC) for DMU's <= forecast date
+  #
+  # Calculated and saved eff, lambda in Phase 1
+  #
+  ###############################################################################################
+  # Calc eff for all DMU's <= forecast date, were eff at release, must redo since need all DMU's
+  dmu.cur.b <- (dmu_date_rel <= date_forecast) & isStdEfficient(dmu.eff.rel)
+  if (debug >= 3) cat("Phase 2 - DMU Forecast Sample Set:", dmu.names[dmu.soa.b], "\n")
+
+  # Calculate Eff for All DMU's in SOA
+  results <- .dea(x, y, rts, orientation, second=second, z=dmu_date_rel,
+                  slack=FALSE, stdeff=TRUE, index.K=dmu.cur.b, index.T=dmu.cur.b)
+  dmu.eff.cur     <- results$eff
+  dmu.lambda.cur  <- results$lambda
+
+  if(mode == "dynamic")
+    for (k in which(dmu.cur.b))
+      dmu.date.cur[k] <- .wMean(dmu_date_rel, dmu.lambda.cur[k,])
+
+  # Calculate ROC values for all DMU's eff at release, not efficient at cur,
+  # have dmu.date.cur < date_forecast
+  dmu.roc.b  <- (dmu_date_rel < date_forecast) & (dmu.date.cur > dmu_date_rel) &
+    isStdEfficient(dmu.eff.rel) & !isStdEfficient(dmu.eff.cur)
+  if (debug >= 3) cat("Phase 2 - DMU Forecast ROC Calc Set:", dmu.names[dmu.roc.b], "\n")
+
+  dmu.roc.cur[dmu.roc.b] <- (dmu.eff.rel[dmu.roc.b] / dmu.eff.cur[dmu.roc.b]) ^
+    ( 1 / (dmu.date.cur[dmu.roc.b] - dmu_date_rel[dmu.roc.b]) )
+
+  for (k in which(dmu.cur.b & dmu.date.cur < dmu_date_rel)){
+    cat("TFDEA Phase 2: DMU k=", k, " effective current ",
+        "date < release date due to dynamic ROC and is being dropped\n")
+    dmu.roc.cur[k] = NA
+  }
+
+  for (k in which(dmu.roc.cur > 10)){
+    cat("TFDEA Phase 2: DMU k=", k, " has a numerically unstable ROC and is being dropped\n")
+    dmu.roc.cur[k] = NA
+  }
+
+  average_roc <- mean(dmu.roc.cur, na.rm=TRUE)
+
+  #
+  # Segmented ROC Calc values
+  #
+  dmu.soa.b <- isStdEfficient(dmu.eff.cur)              # Forecast from DMU eff now (CUR)
+  if (debug >= 3) cat("Forecast using SOA DMUs:", dmu.names[dmu.soa.b],"\n")
+
+  dmu.sroc.cur[dmu.soa.b] <- average_roc                # Default ROC is average
+  if(segroc){
+    for(k in which(dmu.soa.b)){
+      w.mean.roc <- .wMean(dmu.roc.cur, dmu.lambda.cur[,k])
+      if (is.finite(w.mean.roc)){
+        dmu.sroc.cur[k] <- w.mean.roc
       }
     }
   }
-  average_roc <- mean(dmu_roc, na.rm=TRUE)
-  
-  
-  
-  table <- cbind(dmu_date_rel, dmu_stdeff_rel, dmu_date_last, dmu_stdeff_cur, dmu_date_cur, dmu_roc)
-  colnames(table) <- c("Date", "Eff_Rel", "Last", "Eff_Cur", "EDate", "ROC")
+
+  table <- cbind(dmu_date_rel, dmu.eff.rel, dmu.eff.cur, dmu.date.cur, dmu.roc.cur, dmu.sroc.cur)
+  colnames(table) <- c("Date", "Eff_Rel", "Eff_Cur", "EDate", "ROC", "S Roc")
   if (debug >= 2) {
     print(c("done Phase 2", "Avg ROC=", average_roc), digits=3)
     print(table, digits=7)
   }
-  
-###############################################################################################
-#
-# Phase 3 - Forecast (FOR) intro date
-#
-# Go through DMU's > forecast, calc forecast date based upon average ROC, 
-# calculated stdeff (super efficiency) and cur year
-#
-###############################################################################################
+
+  #<New Page>
+  ###############################################################################################
   #
-  dmu_stdeff_for    <- array(NA, c(n),    list(dmu=dmu_names))
-  dmu_lambda_for    <- array(NA, c(n,n),  list(dmu=dmu_names, dmu2=dmu_names))
-  dmu_date_for      <- array(NA, c(n),    list(dmu=dmu_names))
-  
-  # Check that Average ROC is valid, if not valid ROC skip section. Likely no DMU's to forecast from
-  if(is.numeric(average_roc) && !is.nan(average_roc)){
-    # Do foreceast for all DMU's Intro Date > Forecast date
-    for (k in which(dmu_date_rel > date_forecast)){
-      dmu_stdeff_tmp <- rep(NA, n)                        # Make sure all values NA to start
-      
-      dmu_test_b <- dmu_cur_b                           # build set, current set DMU's plus
-      dmu_test_b[k] <- TRUE                             # plus one DMU from forecast set
-      if (debug >= 3) cat("Forecast for SOA DMUs:", dmu_names[dmu_test_b],"\n")
-      
-      results <- .dea(x[dmu_test_b,],
-                      y[dmu_test_b,],
-                      rts, orientation,
-                      normalize=TRUE,
-                      second=second, z=dmu_date_rel[dmu_test_b],
-                      super=TRUE)
+  # Phase 3 - Forecast (FOR) intro date
+  #
+  # Go through DMU's > forecast, calc forecast date based upon average ROC,
+  # calculated stdeff (super efficiency) and cur year
+  #
+  ###############################################################################################
 
-      dmu_stdeff_tmp[dmu_test_b] <- results$eff
-      dmu_lambda_tmp[dmu_test_b, dmu_test_b] <- results$lambda
-      
-      dmu_stdeff_for[k]  <- dmu_stdeff_tmp[k]
-      dmu_lambda_for[dmu_test_b, dmu_test_b] <- results$lambda
+  # Values at forecast date (FOR) - date in future we are forecasting
+  dmu.eff.for       <- array(NA, c(nd),     list(dmu=dmu.names))
+  dmu.lambda.for    <- array(NA, c(nd,nd),  list(dmu=dmu.names, dmu2=dmu.names))
+  dmu.sroc.for      <- array(NA, c(nd),     list(dmu=dmu.names))
+  dmu.date.for      <- array(NA, c(nd),     list(dmu=dmu.names))
 
-      # Question - why Dong-Joon code not forecast < 1 stdeff?
-      # Problem ToDo - maybe rounding issue here
-      if (!is.finite(dmu_stdeff_for[k])) next
-      if (dmu_stdeff_for[k] <= 1){
-        warning("DMU ", dmu_names[k], " is not super effecient at forecast and ", 
-                "will not be forecast", call. = FALSE)
+  # Check that Average ROC is valid, if not valid ROC skip section. Likely no DMU's to use
+  if (is.finite(average_roc)){
+
+    # Calc DMU's to forecast
+    dmu.for.b <- (dmu_date_rel > date_forecast)
+    # Calc Super Effeciency
+    results <- .dea(x, y, rts, orientation, second=second, z=dmu_date_rel, super=TRUE,
+                    stdeff=TRUE, slack=FALSE, index.T=dmu.soa.b, index.K=dmu.for.b)
+    dmu.eff.for     <- results$eff
+    dmu.lambda.for  <- results$lambda
+
+    for (k in which(dmu.for.b)){
+
+      if (!is.finite(dmu.eff.for[k])) next
+
+      if (dmu.eff.for[k] <= 1){
+        cat("TFDEA Phase 3: DMU k=", k, " is not super efficient at forecast and will"
+            ,"not be forecast\n")
         next
       }
 
       if(mode == "dynamic")
-        dmu_date_cur[k] <-sum(dmu_lambda_for[k,] * dmu_date_rel, na.rm=TRUE) / 
-          sum(dmu_lambda_for[k,], na.rm=TRUE)
-      
-      # Calculate Forecast from ROC, super effeciency & cur date
-      dmu_date_for[k]  <- dmu_date_cur[k] + 
-        log(dmu_stdeff_tmp[k], exp(1)) / log(average_roc, exp(1))
-    }  
-  }  
-  
-  
-  table <- cbind(dmu_date_rel, dmu_stdeff_rel, dmu_date_last, dmu_stdeff_cur, dmu_date_cur, 
-                 dmu_roc, dmu_stdeff_for, dmu_date_for)
-  colnames(table) <- c("Date", "Eff_Rel", "Last", "Eff_Cur", "EDate", 
-                       "ROC", "Eff_For", "Date For")
-  if (debug >= 1){ 
+        dmu.date.cur[k] <- .wMean(dmu_date_rel, dmu.lambda.for[k,])
+
+      # Calculate Forecast from ROC, super efficiency & cur date
+      peers.b <- (is.finite(dmu.lambda.for[k,]) & (dmu.lambda.for[k,] > 0) & (dmu.sroc.cur > 0))
+      dmu.sroc.for[k] <- .wMean(dmu.sroc.cur[peers.b], dmu.lambda.for[k, peers.b])
+      dmu.date.for[k] <- dmu.date.cur[k] +
+        log(dmu.eff.for[k], exp(1)) / log(dmu.sroc.for[k], exp(1))
+    }
+  }
+
+  table <- cbind(dmu_date_rel, dmu.eff.rel, dmu.eff.cur, dmu.date.cur,
+                 dmu.roc.cur, dmu.sroc.cur, dmu.eff.for, dmu.sroc.for, dmu.date.for)
+  colnames(table) <- c("Date", "Eff_Rel", "Eff_Cur", "EDate",
+                       "ROC", "S Roc", "Eff_For", " S RocF", "Date For")
+  if (debug >= 1){
     print(c("done Phase 3", "Avg ROC=", average_roc), digits=3)
     print(table, digits=7)
   }
-  
+
   #
   # Return results
   # ToDo - Add option to include ux, vy, w
-  results <- list(date_soa=date_soa_l,
-                  dmu_eff_rel=dmu_stdeff_rel, dmu_eff=dmu_stdeff_cur,
-                  dmu_roc=dmu_roc,
-                  dmu_date_cur=dmu_date_cur, dmu_eff_for=dmu_stdeff_for, dmu_date_for=dmu_date_for,
+  results <- list(date_soa=date.soa.l,
+                  dmu_eff_rel=dmu.eff.rel, dmu_lambda_rel=dmu.lambda.rel,
+                  dmu_eff_cur=dmu.eff.cur, dmu_roc=dmu.roc.cur, dmu_lambda_cur=dmu.lambda.cur,
+                  dmu_date_cur=dmu.date.cur, dmu_sroc_cur=dmu.sroc.cur,
+                  dmu_eff_for=dmu.eff.for, dmu_lambda_for=dmu.lambda.for,
+                  dmu_date_for=dmu.date.for, dmu_sroc_for=dmu.sroc.for,
                   roc=average_roc)
   return(results)
+}
+
+#
+# Weighted mean
+#
+.wMean <-        function(value, weights){
+  valid.b <- is.finite(value) & is.finite(weights)
+  result  <- weighted.mean(value[valid.b], weights[valid.b], na.rm=TRUE)
+
+  return(result)
 }

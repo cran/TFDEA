@@ -25,11 +25,11 @@ Technical data from fighter jets for technology forecasting.
     \item{\code{Payload}}{a numeric vector}
     \item{\code{RadarRange}}{a numeric vector}
     \item{\code{Range}}{a numeric vector}
-    \item{\code{RangeOfBVRMissles}}{a numeric vector}
+    \item{\code{RangeOfBVRMissiles}}{a numeric vector}
     \item{\code{RangeOfDogfightMissiles}}{a numeric vector}
     \item{\code{SeaLevelClimbRate}}{a numeric vector}
     \item{\code{SustainedTurnRate}}{a numeric vector}
-    \item{\code{TakeoffRoll}}{a numeric vector}  
+    \item{\code{TakeoffRoll}}{a numeric vector}
 }}
 %\details{
 %%  ~~ If necessary, more details than the __description__ above ~~
