@@ -1,8 +1,8 @@
 Package: TFDEA
-Version: 0.9.4
+Version: 0.9.5
 Title: TFDEA (Technology Forecasting using DEA)
 Author: ETA Research Group at Portland State University
-Maintainer: Tom Shott <open-tfdea@cecs.pdx.edu>
+Maintainer: Tom Shott <tshott@pdx.edu>
 Depends: R (>= 3.0.0), lpSolveAPI
 License: GPL-2
 Description: The package implements the TFDEA algorithm for technology forecasting.
@@ -12,7 +12,7 @@ Description: The package implements the TFDEA algorithm for technology forecasti
   technology forecasting data sets.
 URL:
         http://www.pdx.edu/extreme-technology-analytics/open-tfdea-r-package
-Packaged: 2014-07-12 00:10:15 UTC; tshott
+Packaged: 2014-09-28 17:14:36 UTC; tshott
 NeedsCompilation: no
 Repository: CRAN
-Date/Publication: 2014-07-12 14:20:23
+Date/Publication: 2014-10-01 18:51:41
