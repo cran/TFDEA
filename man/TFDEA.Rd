@@ -5,7 +5,7 @@
 future product performance, estimate new product release dates, and other purposes.}
 \usage{
 TFDEA(x, y, dmu_date_rel, date_forecast, rts="vrs", orientation="output",second="min",
-  mode="static", segroc=FALSE, debug=0)
+  mode="static", segroc=FALSE, debug=1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

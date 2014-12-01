@@ -4,8 +4,10 @@
 
 \description{Calculate Data Envelopment Analysis super-efficiency}
 \usage{
-SDEA(x, y, rts="vrs", orientation="input", slack=TRUE, second="none", z=0,
-  round=FALSE, debug=0)
+SDEA(x, y, rts="vrs", orientation="input", slack=TRUE, dual = FALSE,
+  cook=FALSE,
+  second="none", z=0,
+  round=FALSE, debug=1)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
@@ -34,6 +36,11 @@ industry studied
 \item{slack}{Optional: \code{slack=TRUE} indicates a secondary objective function of
   maximizing non-radial slacks}
 
+\item{dual}{Optional: \code{dual=TRUE} reports back the dual weights (multipliers) for the inputs
+and outputs}
+
+\item{cook}{Optional: \code{cook=TRUE} enables using Cook algo. to compute super efficiency of DMUs that are infeasible under the standard model.}
+
 \item{round}{Optional: \code{round=TRUE} rounds efficiency values to 0 and 1 if close.}
 
 \item{second}{Optional: Enables an alternate secondary objective function based on lambda and
@@ -51,10 +58,7 @@ industry studied
 }
 
 \details{
-This function implements super-efficiency model whereby each decision making unit is compared to
-all other decision making units but not itself. This allows for efficiency scores that are "better"
-than 1 for most efficient Decision Making Units.  Note that this can cause infeasibilities when the
-Returns to Scale is not constant.  (Ex. \code{rts=vrs})
+This function implements either the standard super-efficiency model or the Cook's extended model whereby each decision making unit is compared to all other decision making units but not itself. This allows for efficiency scores that are "better" than 1 for most efficient Decision Making Units.  Note that the standard super-efficiency model can cause infeasibilities especially when the Varialbe Returns to Scale is assumed. (Ex. \code{rts=vrs})
 }
 
 \value{
@@ -65,13 +69,22 @@ Returns to Scale is not constant.  (Ex. \code{rts=vrs})
 \item{$eff}{Efficiency score for each decision making unit}
 \item{$lambda}{Lambda values for each decision making unit}
 
+\item{$se.eff}{Tau(Gamma) in input(output)-orientated model, only returned when cook=TRUE}
+\item{$se.excess}{Beta(Delta) in input(output)-oriented model, only returned when cook=TRUE}
+
+\item{$vx}{Input weights used by each decision making unit, only returned when dual=TRUE}
+\item{$uy}{Output weights used by each decision making unit, only returned when dual=TRUE}
+\item{$w}{W value for each decision making unit, only returned when dual=TRUE}
+
 \item{$sx}{Radial input slacks, only returned when slack=TRUE}
 \item{$sy}{Radial output slacks, only returned when slack=TRUE}
 
+
 }
 \references{
-Per Andersen and Niels Christian Petersen, "A Procedure for Ranking Efficient Units in Data
-Envelopment Analysis," Management Science,  October 1993 vol. 39 no. 10 1261-1264. Per Andersen
+P. Andersen, N.C. Petersen, A Procedure for Ranking Efficient Units in Data Envelopment Analysis, Manage. Sci. 39 (1993) 1261~1264.
+
+W.D. Cook, L. Liang, Y. Zha, J. Zhu, A modified super-efficiency DEA model for infeasibility, J. Oper. Res. Soc. 60 (2009) 276~281.
 }
 %\author{
 %%  ~~who you are~~
@@ -93,15 +106,17 @@ technology forecasting using past data to predict future capabilities
 %% ~~objects to See Also as \code{\link{help}}, ~~~
 }
 \examples{
-x <- matrix(c(8,2,4,7,2,8,4,3),ncol=2,dimnames=list(LETTERS[1:4]))
-colnames(x) = c("X1", "X2")
-y <- matrix(c(1,1,1,1),ncol=1,dimnames=list(LETTERS[1:4],"Y"))
+x <- matrix(c(1,2,3,4),ncol=1,dimnames=list(LETTERS[1:4],"X"))
+y <- matrix(c(1,3,4,3),ncol=1,dimnames=list(LETTERS[1:4],"Y"))
 
-# Simple radial DEA efficiency
-SDEA(x, y, rts="crs", orientation="input")
+# Simple radial DEA super-efficiency
+SDEA(x, y, rts="vrs", orientation="input")
 
-# Simple radial DEA efficiency with slack maximization
-SDEA(x, y, rts="crs", orientation="input", slack=TRUE)
+# Simple radial DEA super-efficiency with slack maximization
+SDEA(x, y, rts="vrs", orientation="input", slack=TRUE)
+
+# Cook's super-efficiency with slack maximization
+SDEA(x, y, rts="vrs", orientation="input", slack=TRUE, cook=TRUE)
 
 # Example of secondary objective function
 x <- matrix(c(8,2,4,7,10,12,2,8,4,3,2,2),ncol=2,dimnames=list(LETTERS[1:6]))

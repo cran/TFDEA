@@ -1,0 +1,61 @@
+Change Log TFDEA
+
+v0.9.6
+* Updated maintainers & authors list
+
+
+v0.9.5
+* Minor bump for new version uploaded to CRAN
+* Changed maintainer email address
+
+
+v0.9.1
+* Added suppoer for index.T, index.K for internal .dea function
+* Reowrked TFDEA code to use index.T & index.T
+
+
+v0.9.0
+* completely rewrote checking code for input values
+  * no longer support numeric RTS options
+  * check that z is N x 1 dimensions
+
+
+v0.8.5
+* Made sure on failed solve phase 1 dual values set to NaN
+
+
+v0.8.4 04/22/2014
+
+Fixes to how solve is called, now call basis first - fixes some numeric problems
+Changed simple solver problems to print from warning.
+
+v0.8.3
+
+Minor fixes to pass CRAN.
+
+
+v0.8.1
+
+Mostly minor manual edits
+
+CRAN requires that all warnings & notes be resolved.
+
+To get CRAN Approval - had to fix 3 minor things:
+* Descrption file
+
+  Need to use one of licenses in http://www.r-project.org/Licenses/
+  Switched to: GPL_2 for now
+
+* Namespace file
+  is.efficient() has no man page
+
+  Temp fix - removed is.efecient from namespace file and stopped exporting.
+
+  Long term fix - figure out public / private functions and determine if this
+  needs to be exported.
+
+  Need to use TFDEA:::is.efficient() for now.
+
+* Had to add import in NAMESPACE for lpSolveAPI since it's dependency.
+
+

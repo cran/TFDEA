@@ -37,10 +37,20 @@ Technical data from fighter jets for technology forecasting.
 %\source{
 %%  ~~ reference to a publication or URL from which the data were obtained ~~
 %}
-%\references{
-%%  ~~ possibly secondary sources and usages ~~
-%}
+\references{
+O. Inman, T.R. Anderson, R. Harmon, Predicting U.S. jet fighter aircraft introductions from 1944 to 1982: A dogfight between regression and TFDEA, Technol. Forecast. Soc. Change. 73 (2006) 1178~1187.
+
+D.-J. Lim, T.R. Anderson, O.L. Inman, Choosing effective dates from multiple optima in Technology Forecasting using Data Envelopment Analysis (TFDEA), Technol. Forecast. Soc. Change. 88 (2014) 91~97.
+}
 \examples{
+# Reproduce the published results
 data(fighter_jet)
+attach(fighter_jet)
+x <- data.frame(rep(1, 19)); row.names(x) <- Name
+y <- data.frame(MeanFlightHoursBetweenFailure, Payload, MaximumMachNumber, RangeOfBVRMissiles);
+     row.names(y) <- Name
+z <- data.frame(FirstFlight); row.names(z) <- Name
+detach(fighter_jet)
+TFDEA(x, y, z, 1960, rts="vrs", orientation="output", mode="dynamic", second="min", debug=0)
 }
 \keyword{datasets}

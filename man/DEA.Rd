@@ -9,7 +9,7 @@
 
 \usage{
 DEA(x, y, rts="vrs", orientation="input", slack=TRUE, dual=FALSE,
-  second="none", z=0, round=FALSE, debug=0)
+  second="none", z=0, round=FALSE, debug=1)
 }
 
 %- maybe also 'usage' for other objects documented here.

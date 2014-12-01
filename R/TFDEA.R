@@ -18,7 +18,7 @@
 #
 
 TFDEA <- function (x, y, dmu_date_rel, date_forecast, rts="vrs", orientation="output",
-                   second="min", mode="static", segroc=FALSE, debug=0){
+                   second="min", mode="static", segroc=FALSE, debug=1){
 
   rts         <- .checkOption(rts,         "rts",          options.rts.l)
   orientation <- .checkOption(orientation, "orientation",  options.orientation.l)
@@ -35,7 +35,7 @@ TFDEA <- function (x, y, dmu_date_rel, date_forecast, rts="vrs", orientation="ou
   if (nrow(x) != nrow(y))
     stop("Number of DMU's in inputs != number of DMU's in outputs")
 
-  .checkDataGood(x, y)
+  .checkDataGood(x, y, debug=debug)
 
   dmu_date_rel <- .checkVector(dmu_date_rel, "dmu_date_rel")
   if (length(dmu_date_rel) != nrow(x))
@@ -188,14 +188,15 @@ TFDEA <- function (x, y, dmu_date_rel, date_forecast, rts="vrs", orientation="ou
   dmu.sroc.for      <- array(NA, c(nd),     list(dmu=dmu.names))
   dmu.date.for      <- array(NA, c(nd),     list(dmu=dmu.names))
 
-  # Check that Average ROC is valid, if not valid ROC skip section. Likely no DMU's to use
-  if (is.finite(average_roc)){
+  # Calc DMU's to forecast
+  dmu.for.b <- (dmu_date_rel > date_forecast)
 
-    # Calc DMU's to forecast
-    dmu.for.b <- (dmu_date_rel > date_forecast)
+  # Check that Average ROC is valid, if not valid ROC skip section. Likely no DMU's to use
+  if (is.finite(average_roc) && sum(dmu.for.b) > 0){
+
     # Calc Super Effeciency
-    results <- .dea(x, y, rts, orientation, second=second, z=dmu_date_rel, super=TRUE,
-                    stdeff=TRUE, slack=FALSE, index.T=dmu.soa.b, index.K=dmu.for.b)
+    results <- .sdea(x, y, rts=rts, orientation=orientation, second=second, z=dmu_date_rel,
+                     stdeff=TRUE, slack=FALSE, index.T=dmu.soa.b, index.K=dmu.for.b)
     dmu.eff.for     <- results$eff
     dmu.lambda.for  <- results$lambda
 
@@ -224,7 +225,7 @@ TFDEA <- function (x, y, dmu_date_rel, date_forecast, rts="vrs", orientation="ou
                  dmu.roc.cur, dmu.sroc.cur, dmu.eff.for, dmu.sroc.for, dmu.date.for)
   colnames(table) <- c("Date", "Eff_Rel", "Eff_Cur", "EDate",
                        "ROC", "S Roc", "Eff_For", " S RocF", "Date For")
-  if (debug >= 1){
+  if (debug >= 2){
     print(c("done Phase 3", "Avg ROC=", average_roc), digits=3)
     print(table, digits=7)
   }
