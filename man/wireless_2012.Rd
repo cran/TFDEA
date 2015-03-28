@@ -29,7 +29,8 @@ x <- data.frame(Bandwidth); row.names(x)  <- rownames(wireless_2012)
 y <- data.frame(Bitrate); row.names(y) <- rownames(wireless_2012)
 z <- data.frame(Date); row.names(z) <- rownames(wireless_2012)
 detach(wireless_2012)
-TFDEA(x, y, z, 2001, rts="crs", orientation="input", second="none", mode="static", debug=0)
+TFDEA(x, y, z, 2001, rts="crs", orientation="input", second="none",
+  mode="static", debug=0)
 }
 \keyword{datasets}
 \references{

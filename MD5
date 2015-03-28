@@ -1,10 +1,10 @@
-f4dec4bb4e52ad8abe2dc0097a910403 *ChangeLog
-fd4ed84cd4ccb9a3fd606b37c2bd57cd *DESCRIPTION
+d7e2420b2b6dcd39b23e932eb7095df4 *ChangeLog
+690e522e1cd61cafaabcd85c01525af1 *DESCRIPTION
 2ecd2aa0ef57cbacd23d4459f93cf8d9 *NAMESPACE
 10be000401c5eb0b70dedb37108e06d8 *R/DEA.R
 843e337ff9579b4a12a791c4151bbeff *R/SDEA.R
 e2ec7b90b056d6142976b1da144d6116 *R/TFDEA.R
-e376a374b68e653e780c8031fbac0164 *R/dea_common.R
+ca288bd1860be0713bceec06528d14d4 *R/dea_common.R
 2d9eba64572b9e53c83d135a14ee5412 *R/dea_internal.R
 b6dbb010a91d04f9bcff6211112fd4bd *R/fast_internal.R
 51725d79ab28cd273a6e00ae1a84e845 *R/sdea_internal.R
@@ -12,9 +12,9 @@ b6dbb010a91d04f9bcff6211112fd4bd *R/fast_internal.R
 1f51e111ef89395aca0f82873b170876 *R/utility.R
 b93e8513da82e35e6c5ce1499337c159 *data/fighter_jet.RData
 8db0e5fed0952bb4d21a89f6cd3000c6 *data/wireless_2012.RData
-700a487e1b2f7b846bbdbd5fcedf9b1c *man/DEA.Rd
+e5e53b3f6cefb7157703720a2434bbee *man/DEA.Rd
 5a28fafed950c7ea3922fa485252cf52 *man/SDEA.Rd
-0c20eb240007be27dd1b9ae20d1649d8 *man/TFDEA.Rd
-369249444aba63d0892fc62c43f3dd54 *man/fighter_jet.Rd
+c0bbd457475416d636d199721c2ea1cf *man/TFDEA.Rd
+e3d4ad11e55f34540e3b78b78acf700d *man/fighter_jet.Rd
 38f520472751d368cb34684a4d2afe23 *man/isEfficient.Rd
-dbf11b15ef36f41e6efe636f55933954 *man/wireless_2012.Rd
+5657b2eef3c8d3e48d9d30e55623889c *man/wireless_2012.Rd

@@ -124,9 +124,11 @@ colnames(x) = c("X1", "X2")
 y <- matrix(c(1,1,1,1,1,1),ncol=1,dimnames=list(LETTERS[1:6],"Y"))
 z <- matrix(c(1:6),ncol=1,dimnames=list(LETTERS[1:6],"Z"))
 
-DEA (x,y,rts="crs", orientation="input", round=TRUE, slack=FALSE, second="min", z=z)
+DEA (x,y,rts="crs", orientation="input", round=TRUE, slack=FALSE,
+  second="min", z=z)
 
-DEA (x,y,rts="crs", orientation="input", round=TRUE, slack=FALSE, second="max", z=z)
+DEA (x,y,rts="crs", orientation="input", round=TRUE, slack=FALSE,
+  second="max", z=z)
 
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the

@@ -47,10 +47,12 @@ D.-J. Lim, T.R. Anderson, O.L. Inman, Choosing effective dates from multiple opt
 data(fighter_jet)
 attach(fighter_jet)
 x <- data.frame(rep(1, 19)); row.names(x) <- Name
-y <- data.frame(MeanFlightHoursBetweenFailure, Payload, MaximumMachNumber, RangeOfBVRMissiles);
-     row.names(y) <- Name
+y <- data.frame(MeanFlightHoursBetweenFailure, Payload, MaximumMachNumber,
+  RangeOfBVRMissiles);
+row.names(y) <- Name
 z <- data.frame(FirstFlight); row.names(z) <- Name
 detach(fighter_jet)
-TFDEA(x, y, z, 1960, rts="vrs", orientation="output", mode="dynamic", second="min", debug=0)
+TFDEA(x, y, z, 1960, rts="vrs", orientation="output", mode="dynamic",
+  second="min", debug=0)
 }
 \keyword{datasets}

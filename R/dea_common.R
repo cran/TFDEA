@@ -157,7 +157,7 @@
 .dea_obj_phase2 <- function(lpm, zT, vars.slack, debug=1){
 
   obj.phase2                <- rep.int(0, lpm$col.n)
-  obj.phase2[1:lpm$nT]      <- -zT
+  obj.phase2[1:lpm$nT]      <- ifelse( rep.int(lpm$orientation.in, lpm$nT), -zT, zT)
 
   # MUST be if, if slacks not set, slack vars may not exist in model - can not use ifelse
   if (vars.slack)                           # Maxamize Slacks  - set slacks to -1, 1

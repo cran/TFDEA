@@ -1,5 +1,9 @@
 Change Log TFDEA
 
+v0.9.8.2
+* fixed bug in DEA secondary optimization - sign error resulted in minimizing when maximization
+  was wanted
+
 v0.9.6
 * Updated maintainers & authors list
 
@@ -10,8 +14,8 @@ v0.9.5
 
 
 v0.9.1
-* Added suppoer for index.T, index.K for internal .dea function
-* Reowrked TFDEA code to use index.T & index.T
+* Added support for index.T, index.K for internal .dea function
+* Reworked TFDEA code to use index.T & index.T
 
 
 v0.9.0
@@ -41,7 +45,7 @@ Mostly minor manual edits
 CRAN requires that all warnings & notes be resolved.
 
 To get CRAN Approval - had to fix 3 minor things:
-* Descrption file
+* Description file
 
   Need to use one of licenses in http://www.r-project.org/Licenses/
   Switched to: GPL_2 for now
@@ -49,7 +53,7 @@ To get CRAN Approval - had to fix 3 minor things:
 * Namespace file
   is.efficient() has no man page
 
-  Temp fix - removed is.efecient from namespace file and stopped exporting.
+  Temp fix - removed is.efficient from namespace file and stopped exporting.
 
   Long term fix - figure out public / private functions and determine if this
   needs to be exported.
